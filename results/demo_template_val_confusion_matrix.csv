@@ -1,0 +1,6 @@
+,cards,dbo_tech,fraud_security,other,payments_transfers
+cards,1,0,0,0,0
+dbo_tech,0,1,0,0,0
+fraud_security,0,0,2,0,0
+other,0,0,0,1,0
+payments_transfers,0,0,0,0,1
