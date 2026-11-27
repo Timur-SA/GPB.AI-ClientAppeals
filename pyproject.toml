@@ -4,7 +4,13 @@ version = "0.1.0"
 description = "ML pipeline for customer support tickets"
 requires-python = ">=3.14"
 dependencies = [
-
+    "datasets>=5.2.0",
+    "matplotlib>=3.11.2",
+    "pydantic>=2.14.4",
+    "scikit-learn>=1.9.1",
+    "seaborn>=0.13.2",
+    "torch>=2.15.0",
+    "transformers>=5.24.1",
 ]
 
 [dependency-groups]
