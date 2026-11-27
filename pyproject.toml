@@ -36,7 +36,7 @@ indent-style = "space"
 
 # --- ty ---
 [tool.ty.environment]
-python-version = ">=3.14"
+python-version = "3.14"
 
 [tool.ty.src]
 include = ["pipeline", "tests"]
