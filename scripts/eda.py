@@ -269,25 +269,37 @@ cleaned.to_csv(
 
 print("\nОчищенный датасет сохранён")
 
-
 # Круговая диаграмма сегментов клиентов
-plt.figure(figsize=(8, 8))
+counts = cleaned["client_segment"].value_counts()
 
-cleaned["client_segment"].value_counts().plot(
-    kind="pie", #круговая диаграмма
-    autopct="%1.1f%%",
+fig, ax = plt.subplots(figsize=(12, 7))
+
+wedges, _ = ax.pie(
+    counts,
     startangle=90
 )
 
-plt.title("Распределение по сегментам клиентов")
-plt.ylabel("")
-plt.tight_layout()
+labels = [
+    f"{name} — {n} ({n / counts.sum():.1%})"
+    for name, n in counts.items()
+]
 
-plt.savefig(
-    "../results/client_segment_pie.png",
-    dpi=300
+ax.legend(
+    wedges,
+    labels,
+    title="Сегменты клиентов",
+    loc="center left",
+    bbox_to_anchor=(1, 0.5)
 )
 
+ax.set_title("Распределение обращений по сегментам клиентов")
+
+plt.tight_layout()
+plt.savefig(
+    project_dir / "results" / "client_segment_pie.png",
+    dpi=300,
+    bbox_inches="tight"
+)
 plt.close()
 
 print("Пайчарт сегментов клиентов сохранён")
@@ -302,21 +314,38 @@ categorical_columns = [
 ]
 
 for column in categorical_columns:
-    plt.figure(figsize=(10, 10))
+    counts = cleaned[column].value_counts()
 
-    cleaned[column].value_counts().plot(
-        kind="pie",
-        autopct="%1.1f%%",
-        startangle=90
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    wedges, _ = ax.pie(
+        counts,
+        startangle=90,
+        colors=plt.cm.tab20.colors
     )
 
-    plt.title(f"Распределение: {column}")
-    plt.ylabel("")
+    labels = [
+        f"{name} — {n} ({n / counts.sum():.1%})"
+        for name, n in counts.items()
+    ]
+
+    ax.legend(
+        wedges,
+        labels,
+        title=column,
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+        fontsize=10
+    )
+
+    ax.set_title(f"Распределение: {column}")
+
     plt.tight_layout()
 
     plt.savefig(
-        f"../results/{column}_pie.png",
-        dpi=300
+        project_dir / "results" / f"{column}_pie.png",
+        dpi=300,
+        bbox_inches="tight"
     )
 
     plt.close()
@@ -447,3 +476,260 @@ new.to_csv(
 
 print("Новый датасет сохранён")
 print("Размер:", new.shape)
+# Подробный анализ повторов app_error
+
+app = labeled[labeled["subcategory"] == "app_error"]
+
+print("\nАНАЛИЗ APP_ERROR")
+print("Всего обращений:", len(app))
+print("Уникальных текстов:", app["text"].nunique())
+
+for text, group in app.groupby("text"):
+    print("\nТекст обращения:")
+    print(text)
+
+    print("Количество повторений:", len(group))
+    print("Количество разных клиентов:", group["client_id"].nunique())
+    print("Сегменты:", group["client_segment"].unique())
+    print("Каналы:", group["channel"].unique())
+    print("Приоритеты:", group["priority"].unique())
+    print("Стаж клиента:", group["tenure_months"].nunique())
+    print("Активные продукты:", group["active_products"].nunique())
+# Анализ multilingual
+print("\nАНАЛИЗ MULTILINGUAL")
+
+m = df[df["subcategory"] == "multilingual"]
+
+print("Всего обращений:", len(m))
+print("Уникальных текстов:", m["text"].nunique())
+
+for i, t in enumerate(m["text"].unique(), 1):
+    print(f"\nОбращение №{i}:")
+    print(t)
+print("\nНормализация multilingual")
+
+t = m["text"].str.replace(
+    r"\d{4}", "XXXX", regex=True
+)
+
+print("До нормализации:", m["text"].nunique())
+print("После нормализации:", t.nunique())
+# Анализ скрытых дубликатов по PII
+
+import re
+
+def normalize(t):
+    t = t.lower()
+
+    # Маскированные номера карт
+    t = re.sub(r"\*{2,}\s*\d{4}\b", "CARD", t)
+
+    # Номера телефонов
+    t = re.sub(
+        r"(?:\+7|8)[ -]?\(?\d{3}\)?[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}\b",
+        "PHONE", t
+    )
+
+    # Электронная почта
+    t = re.sub(r"[\w.+-]+@[\w.-]+\.\w+", "EMAIL", t)
+
+    return t
+
+a = df.copy()
+a["normalized_text"] = a["text"].apply(normalize)
+
+print("\nАНАЛИЗ СКРЫТЫХ ДУБЛИКАТОВ")
+print("Всего обращений:", len(a))
+print("Уникальных текстов до:", a["text"].nunique())
+print("Уникальных текстов после:", a["normalized_text"].nunique())
+
+print("\nСравнение по подкатегориям:")
+
+s = a.groupby("subcategory").agg(
+    before=("text", "nunique"),
+    after=("normalized_text", "nunique")
+)
+
+s["difference"] = s["before"] - s["after"]
+
+print(s.sort_values("difference", ascending=False))
+
+# Проверка разметки после нормализации PII
+
+b = a[a["label_source"].notna()]
+u = a[a["label_source"].isna()]
+
+print("\nПРОВЕРКА ПОСЛЕ НОРМАЛИЗАЦИИ")
+
+print("Размеченных обращений:", len(b))
+print("Уникальных шаблонов:", b["normalized_text"].nunique())
+
+print("\nНеразмеченных обращений:", len(u))
+print("Уникальных шаблонов:", u["normalized_text"].nunique())
+
+print("\nПроверка противоречий в разметке:")
+
+for c in ["category", "subcategory", "complexity", "priority"]:
+    n = b.groupby("normalized_text")[c].nunique()
+    print(c, ":", (n > 1).sum())
+
+print("\nСовпадения неразмеченных с размеченными:")
+
+print(u["normalized_text"].isin(b["normalized_text"]).sum())
+# Новые неразмеченные обращения
+
+new = u[~u["normalized_text"].isin(b["normalized_text"])]
+
+print("\nНОВЫЕ НЕРАЗМЕЧЕННЫЕ ОБРАЩЕНИЯ")
+print("Количество:", len(new))
+
+for i, t in enumerate(new["normalized_text"], 1):
+    print(f"\nОбращение №{i}:")
+    print(t)
+
+# Расширенный анализ текстовых шаблонов
+
+def template(t):
+    t = normalize(t)
+
+    # Даты
+    t = re.sub(r"\b\d{2}\.\d{2}\.\d{4}\b", "DATE", t)
+
+    # Суммы в рублях
+    t = re.sub(r"\d+(?:[ \u00a0]\d{3})*(?:[.,]\d+)?\s*₽",
+               "SUM", t)
+
+    # Маскированные номера счетов
+    t = re.sub(r"\b\d{5}CARD\b", "ACCOUNT", t)
+
+    return t
+
+a["template_text"] = a["text"].apply(template)
+
+print("\nРАСШИРЕННЫЙ АНАЛИЗ ШАБЛОНОВ")
+
+print("До нормализации:", a["text"].nunique())
+print("После нормализации PII:", a["normalized_text"].nunique())
+print("После расширенной нормализации:", a["template_text"].nunique())
+
+s = a.groupby("subcategory").agg(
+    before=("text", "nunique"),
+    pii=("normalized_text", "nunique"),
+    after=("template_text", "nunique")
+)
+
+print("\nСравнение по подкатегориям:")
+print(s.sort_values("after"))
+# Проверка меток после расширенной нормализации
+
+b = a[a["label_source"].notna()]
+u = a[a["label_source"].isna()]
+
+print("\nИТОГОВАЯ ПРОВЕРКА ШАБЛОНОВ")
+
+print("Размеченных шаблонов:",
+      b["template_text"].nunique())
+
+print("Неразмеченных шаблонов:",
+      u["template_text"].nunique())
+
+print("\nПротиворечия в метках:")
+
+for c in ["category", "subcategory", "complexity", "priority"]:
+    n = b.groupby("template_text")[c].nunique()
+    print(c, ":", (n > 1).sum())
+
+print("\nСовпадения неразмеченных с размеченными:")
+
+print(u["template_text"].isin(b["template_text"]).sum())
+
+# График этапов нормализации
+
+names = [
+    "Исходный датасет",
+    "Без точных повторов",
+    "Нормализация PII",
+    "Расширенная нормализация"
+]
+
+values = [
+    len(a),
+    a["text"].nunique(),
+    a["normalized_text"].nunique(),
+    a["template_text"].nunique()
+]
+
+plt.figure(figsize=(12, 7))
+
+bars = plt.bar(names, values, color="steelblue")
+
+plt.bar_label(bars, padding=5, fontsize=12)
+plt.title("Этапы выявления текстовых повторов")
+plt.ylabel("Количество")
+plt.ylim(0, max(values) * 1.15)
+plt.xticks(rotation=15)
+plt.tight_layout()
+
+plt.savefig(
+    project_dir / "results" / "normalization_stages.png",
+    dpi=300
+)
+
+plt.close()
+# Сравнение подкатегорий после нормализации
+
+s = a.groupby("subcategory").agg(
+    before=("text", "nunique"),
+    pii=("normalized_text", "nunique"),
+    after=("template_text", "nunique")
+)
+
+s = s.sort_values("before")
+
+ax = s.plot(
+    kind="barh",
+    figsize=(15, 14),
+    color=["steelblue", "orange", "green"]
+)
+
+for bars in ax.containers:
+    ax.bar_label(bars, padding=3, fontsize=8)
+
+plt.title("Сравнение подкатегорий после нормализации")
+plt.xlabel("Количество уникальных текстов")
+plt.ylabel("Подкатегория")
+
+plt.legend([
+    "До нормализации",
+    "После нормализации PII",
+    "После расширенной нормализации"
+])
+
+plt.xlim(0, s["before"].max() * 1.15)
+plt.tight_layout()
+
+plt.savefig(
+    project_dir / "results" / "normalization_comparison.png",
+    dpi=300
+)
+
+plt.close()
+
+print("\nИтоговые графики сохранены")
+# Расчёт дефицита уникальных шаблонов
+
+d = b.groupby("subcategory")["template_text"].nunique()
+
+d = d.to_frame("current")
+
+d["need_15"] = (15 - d["current"]).clip(lower=0)
+d["need_20"] = (20 - d["current"]).clip(lower=0)
+
+print("\nДЕФИЦИТ УНИКАЛЬНЫХ ШАБЛОНОВ")
+print(d.sort_values("current"))
+
+print("\nВсего текущих шаблонов:", d["current"].sum())
+print("Нужно добавить до 15:", d["need_15"].sum())
+print("Нужно добавить до 20:", d["need_20"].sum())
+
+d.to_csv(project_dir / "results" / "template_deficit.csv")
