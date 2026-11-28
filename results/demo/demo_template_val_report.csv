@@ -1,0 +1,9 @@
+,precision,recall,f1-score,support
+cards,1.0,1.0,1.0,1.0
+dbo_tech,1.0,1.0,1.0,1.0
+fraud_security,1.0,1.0,1.0,2.0
+other,1.0,1.0,1.0,1.0
+payments_transfers,1.0,1.0,1.0,1.0
+accuracy,1.0,1.0,1.0,1.0
+macro avg,1.0,1.0,1.0,6.0
+weighted avg,1.0,1.0,1.0,6.0
