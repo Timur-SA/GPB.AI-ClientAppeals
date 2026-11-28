@@ -1,0 +1,48 @@
+[project]
+name = "gpb-ai-clientappeals"
+version = "0.1.0"
+description = "ML pipeline for customer support tickets"
+requires-python = ">=3.14"
+dependencies = [
+    "datasets>=5.2.0",
+    "matplotlib>=3.11.2",
+    "pydantic>=2.14.4",
+    "scikit-learn>=1.9.1",
+    "seaborn>=0.13.2",
+    "torch>=2.15.0",
+    "transformers>=5.24.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "ruff>=0.8.0",
+    "ty>=0.0.1a0",
+]
+
+# --- Ruff ---
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["pipeline", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# --- ty ---
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.ty.src]
+include = ["pipeline", "tests"]
+
+# --- Pytest ---
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."] # Позволяет писать `from pipeline.classifier import ...` в тестах
+addopts = "-q --tb=short"
